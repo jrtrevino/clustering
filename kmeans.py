@@ -1,52 +1,35 @@
 import math
+import numpy as np
 import pandas as pd
 import sys
 from utility import csv_to_df
+import matplotlib.pyplot as plt
 
 
-def kmeans(df, restrictions, centroids):
-    # we only need to do the next two lines if our centroids are actual points.
-    # if they are averages, we can skip to reassignment
-    clusters = [df.loc[[df.index[centroids[x]]]]
-                for x in range(len(centroids))]
-    cluster_means = [get_df_mean(clusters[x], restrictions)
-                     for x in range(len(centroids))]
-    cluster_assignment = [0] * len(centroids)
-    # previous_assignment = [0] * len(centroids)
+def kmeans(df, restrictions, centroids, iterations):
+    clusters = [df.loc[[x]] for x in centroids]
+    cluster_centers = [get_df_mean(x, restrictions) for x in clusters]
     sse_threshold = 0.10
-    # assignment_threshold = 0.1
-    prev_sse = [1] * len(centroids)
-    # print("Initial cluster means: {}".format(cluster_means))
-    while (True):
+    prev_sse = None
+    for i in range(iterations):
         for index, row in df.iterrows():
-            distances = [] * len(clusters)
-            for i in range(len(clusters.copy())):
-                distances.append((i, get_euclid_distance(
-                    df.loc[[index]], cluster_means[i])))
-            cluster_selection = sorted(
-                distances, key=lambda tuple: tuple[1])[0]
-            # check if data is already in the same cluster
-            in_cluster = [index in clusters[x].index.values for x in range(
-                len(clusters))]
-            if True in in_cluster:
-                cluster_index = in_cluster.index(True)
-                clusters[cluster_index] = clusters[cluster_index].drop(index)
-            clusters[cluster_selection[0]] = clusters[cluster_selection[0]].append(
-                df.loc[[index]])
-            cluster_assignment[cluster_selection[0]] += 1
-        cluster_means = [get_df_mean(clusters[x], restrictions)
-                         for x in range(len(centroids))]
-        sse_arr = calculate_sse(clusters, cluster_means)
-        if False not in [(sse_arr[sse] == prev_sse[sse] or abs(sse_arr[sse] - prev_sse[sse]) / prev_sse[sse] <= sse_threshold) for sse in range(len(sse_arr))]:
-            # print("sse ratio: {}".format(sse/prev_sse))
-            # print("sse bound")
-            break
-        prev_sse = sse_arr
-        # print("Assignment numbers: {}".format(cluster_assignment))
-        # print("SSE: {}".format(sse))
-        # check stopping criterion
-        # previous_assignment = cluster_assignment.copy()
-        cluster_assignment = [0] * len(centroids)
+            if index in centroids:
+                continue  # prevent adding the centroid point to the cluster again
+            distances = sorted(
+                [(get_euclid_distance(df.loc[[index]], cluster_centers[y]), y) for y in range(len(cluster_centers))])
+            for cluster_num in range(len(clusters)):
+                if index in clusters[cluster_num].index:
+                    clusters[cluster_num] = clusters[cluster_num].drop(index)
+            clusters[distances[0][1]] = clusters[distances[0]
+                                                 [1]].append(df.loc[[index]])
+        cluster_centers = [get_df_mean(x, restrictions) for x in clusters]
+        sse = calculate_sse(clusters, cluster_centers)
+        if prev_sse == None:
+            prev_sse = sse
+        else:
+            if abs((prev_sse - sse)/prev_sse) <= sse_threshold:
+                break
+            prev_sse = sse
     return clusters
 
 
@@ -62,20 +45,66 @@ def calculate_sse(clusters, cluster_means):
                        for column_index in range(len(cluster_means[counter])) if cluster_means[counter][column_index] != 'NaN'])
         sse_arr[counter] = sse/len(cluster)
         counter += 1
-    return sse_arr
+    return sum(sse_arr)
 
-    # Randomly samples k datapoints from df to use as initial centroids
-    # for k-means.
-    # INPUT:
-    #    df -> a pandas dataframe
-    #    k -> an integer representing number of centroids to pick
-    # OUTUT:
-    #    centroids -> a list containing the row-indices of the datapoints
-    #    chosen for our initial centroids.
+
+def get_k_centroids_max_distance(df, restrictions, k):
+    centroids = pd.DataFrame()
+    df_sample = df.sample(frac=0.2, random_state=21)
+    df_center = get_df_mean(df_sample, restrictions)
+    # get clusters
+    for i in range(k):
+        max_distance = max_index = None
+        if i == 0 or i == 1:
+            for index, row in df_sample.iterrows():
+                point = df_center if i == 0 else get_df_mean(
+                    centroids.iloc[[0]], restrictions)
+                distance = get_euclid_distance(df_sample.loc[[index]], point)
+                if max_distance is None or distance > max_distance:
+                    max_distance = distance
+                    max_index = index
+            centroids = centroids.append(df_sample.loc[[max_index]])
+        else:
+            for index, row in df_sample.iterrows():
+                points = [get_df_mean(centroids.iloc[[x]], restrictions)
+                          for x in range(len(centroids))]
+                distance = sum([get_euclid_distance(
+                    df_sample.loc[[index]], point) for point in points])
+                if max_distance is None or distance > max_distance:
+                    max_distance = distance
+                    max_index = index
+            centroids = centroids.append(df_sample.loc[[max_index]])
+
+    return centroids.index.tolist()
+
+
+def get_max_min_distance(df, point):
+    max_d = min_d = None
+    avg_d = 0
+    for index, row in df.iterrows():
+        row_d = get_euclid_distance(df.loc[[index]], point)
+        if max_d is None or min_d is None:
+            max_d = min_d = row_d
+        elif row_d > max_d:
+            max_d = row_d
+        else:
+            min_d = row_d
+        avg_d += row_d
+    return [max_d, min_d, avg_d/len(df)]
+
+
+# Randomly samples k datapoints from df to use as initial centroids
+# for k-means.
+# INPUT:
+#    df -> a pandas dataframe
+#    k -> an integer representing number of centroids to pick
+# OUTPUT:
+#    centroids -> a list containing the row-indices of the datapoints
+#    chosen for our initial centroids.
 
 
 def get_k_centroids_random(df, k):
-    centroids = df.sample(n=k, random_state=1)
+    centroids = df.sample(n=k)
     return centroids.index.tolist()
 
 # Used for recalculating cluster centers.
@@ -89,7 +118,9 @@ def get_k_centroids_random(df, k):
 #     for column i.
 
 
-def get_df_mean(df, restrictions):
+def get_df_mean(df, restrictions, pr=False):
+    if pr:
+        print("df_mean {}".format(df))
     mean_vector = [0] * len(df.columns)
     for i in range(len(df.columns)):
         if restrictions[i] == 0:
@@ -114,39 +145,29 @@ def get_euclid_distance(cluster_point, mean_vector):
         col_mean = mean_vector[counter]
         if col_mean != 'NaN':
             distance += (col_val - col_mean)**2
-            counter += 1
+        counter += 1
     return math.sqrt(distance)
 
 
-def get_max_min_distance(df, point):
-    max_d = min_d = None
-    avg_d = 0
-    for index, row in df.iterrows():
-        row_d = get_euclid_distance(df.loc[[index]], point)
-        if max_d is None or min_d is None:
-            max_d = min_d = row_d
-        elif row_d > max_d:
-            max_d = row_d
-        else:
-            min_d = row_d
-        avg_d += row_d
-    return [max_d, min_d, avg_d/len(df)]
-
-
 def draw_clusters(clusters):
-    for cluster in clusters:
-        columns = cluster.columns
-        cluster.plot(x=columns[0], y=columns[1])
-
+    colors = ['red', 'blue', 'purple', 'yellow', 'green', 'orange']
+    counter = 0
+    ax = clusters[0]
+    ax1 = ax.plot(
+        kind='scatter', x=clusters[0].columns[0], y=clusters[0].columns[1], color=colors[0])
+    for i in range(1, len(clusters)):
+        clusters[i].plot(kind='scatter', x=clusters[i].columns[0],
+                         y=clusters[i].columns[1], color=colors[i],  ax=ax1)
 
 # A wrapper for our kmeans function that we use if the program is started from main
 
 
 def wrapper(dataset, k):
     df, restrictions = csv_to_df(dataset)
+    merged = pd.DataFrame()
     # get initial centroids
-    centroids = get_k_centroids_random(df, k)
-    clusters = kmeans(df, restrictions, centroids)
+    centroids = get_k_centroids_max_distance(df, restrictions, k)
+    clusters = kmeans(df, restrictions, centroids, 20)
     counter = 0
     for cluster in clusters:
         mean = get_df_mean(cluster, restrictions)
@@ -161,7 +182,6 @@ def wrapper(dataset, k):
         for index, row in cluster.iterrows():
             print(index, row.values)
         print("\n")
-
         counter += 1
     draw_clusters(clusters)
 
