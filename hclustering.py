@@ -31,7 +31,7 @@ def find_closest_index(df):
                     min_index = (index, col_val)
             current_column += 1
         start += 1
-    return min_index
+    return min_index, min_num
 
 
 def euclidean(x, y):
@@ -77,6 +77,9 @@ def merge_data(point1, point2, index):
     for i in range(len(point1.values[0])):
         merged.append((point1.values[0][i] + point2.values[0][i]) / 2)
     return merged
+
+
+cluster_lookup = {}
 
 
 def merge_matrix_df(data_df, index_arg):
@@ -125,7 +128,8 @@ def hcluster(csv_file):
     changing_df = df.copy()
     while len(changing_df) > 1:
         distance_matrix = gen_distance_df(changing_df)
-        index = find_closest_index(distance_matrix)
+        index, min_num = find_closest_index(distance_matrix)
+        cluster_lookup[index] = min_num
         merged_df = merge_matrix_df(changing_df, index)
         changing_df = merged_df
     root_cluster = changing_df.index.tolist()
