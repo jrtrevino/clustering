@@ -95,14 +95,23 @@ def merge_matrix_df(data_df, index_arg):
     return data_df
 
 
-def create_json(root_cluster):
-    print(type(root_cluster))
-    tree = {
-        "type": "root",
-        "height": 1,
-        "nodes": []
-    }
-    value = eval(root_cluster)
+def create_json(tuple_cluster, json_tree):
+
+    queue = []
+    queue.append(tuple_cluster)
+    while len(queue) > 0:
+        popped = queue.pop(0)
+        left = popped[0]
+        right = popped[1]
+        if type(left) == int and type(right) == int:
+            print("leaf", left, right)
+        if type(left) == tuple:
+            print(left)
+            queue.append(left)
+        if type(right) == tuple:
+            print(right)
+            queue.append(right)
+
     return 0
 
 
@@ -118,7 +127,12 @@ def hcluster(csv_file):
         merged_df = merge_matrix_df(changing_df, index)
         changing_df = merged_df
     root_cluster = changing_df.index.tolist()
-    dendro_json = create_json(root_cluster[0])
+    tree = {
+        "type": "root",
+        "height": 1,
+        "nodes": []
+    }
+    dendro_json = create_json(root_cluster[0], tree)
     return dendro_json
 
 
