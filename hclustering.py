@@ -111,19 +111,13 @@ def create_json(df, tuple_cluster, root=False):
         data['nodes'].append(create_json(df, left))
         data['nodes'].append(create_json(df, right))
     elif type(left) == int and type(right) == int:
-        left_leaf = {
+        leaf_combined = {
             "type": "leaf",
             "height": 0,
-            "data": left
+            "data": (left, right)
             # "data": df.loc[str(left)]
         }
-        right_leaf = {
-            "type": "leaf",
-            "height": 0,
-            "data": right
-            # "data": df.loc[str(right)]
-        }
-        return [left_leaf, right_leaf]
+        return leaf_combined
     else:
         left_leaf = right_leaf = None
         if type(left) == int:
