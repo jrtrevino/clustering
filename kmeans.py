@@ -156,6 +156,8 @@ def draw_clusters(clusters):
     ax1 = ax.plot(
         kind='scatter', x=clusters[0].columns[0], y=clusters[0].columns[1], color=colors[0])
     for i in range(1, len(clusters)):
+        if len(clusters) == 1:
+            break
         clusters[i].plot(kind='scatter', x=clusters[i].columns[0],
                          y=clusters[i].columns[1], color=colors[i],  ax=ax1)
 
