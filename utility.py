@@ -6,9 +6,8 @@ def csv_to_df(path_to_csv):
     with open(path_to_csv, "r") as file:
         restrictions = list(map(int, file.readline().rstrip().split(',')))
     headers = get_headers(path_to_csv)
-    df = pd.read_csv(path_to_csv, skiprows=[0], names=headers)
+    df = pd.read_csv(path_to_csv, skiprows=0, names=headers)
     for column in df:
-        print(column)
         if restrictions[counter] == 1:
             df[column] = pd.to_numeric(df[column], errors='coerce')
         counter += 1
@@ -25,7 +24,3 @@ def get_headers(path_to_csv):
     elif 'clusters' in path_to_csv or 'Clusters' in path_to_csv:
         return ['Col1', 'Col2']
     return ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'class']
-
-
-df, restrictions = csv_to_df('./data/AccidentsSet03.csv')
-print(df)
