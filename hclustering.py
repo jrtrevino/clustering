@@ -1,4 +1,5 @@
 import math
+import re
 import sys
 
 import numpy as np
@@ -98,6 +99,11 @@ def merge_matrix_df(data_df, index_arg):
     return data_df
 
 
+def get_qualifying_clusters(threshold):
+    clusters = [key for key, value in cluster_lookup.items() if value >= threshold]
+    return clusters
+
+
 def create_json(df, tuple_cluster, root=False):
     data = {
         "type": "node",
@@ -108,16 +114,41 @@ def create_json(df, tuple_cluster, root=False):
     if root:
         data['height'] = cluster_lookup[tuple_cluster]
         data['type'] = 'root'
-        data['nodes'].append(create_json(df, left))
-        data['nodes'].append(create_json(df, right))
+        if type(left) == int:
+            leaf_left = {
+                "type": "leaf",
+                "height": 0,
+                "data": left
+            }
+            data['nodes'].append(leaf_left)
+        else:
+            data['nodes'].append(create_json(df, left))
+        if type(right) == int:
+            leaf_right = {
+                "type": "leaf",
+                "height": 0,
+                "data": right
+            }
+            data['nodes'].append(leaf_right)
+        else:
+            data['nodes'].append(create_json(df, right))
     elif type(left) == int and type(right) == int:
-        leaf_combined = {
+        leaf_left = {
             "type": "leaf",
             "height": 0,
-            "data": (left, right)
-            # "data": df.loc[str(left)]
+            "data": left
         }
-        return leaf_combined
+        leaf_right = {
+            "type": "leaf",
+            "height": 0,
+            "data": right
+        }
+        # leaf_combined = {
+        #     "type": "leaf",
+        #     "height": 0,
+        #     "data": (left, right)
+        # }
+        return [leaf_left, leaf_right]
     else:
         left_leaf = right_leaf = None
         if type(left) == int:
@@ -145,9 +176,17 @@ def create_json(df, tuple_cluster, root=False):
     return data
 
 
+def print_clusters(clusters, df):
+    for index in range(len(clusters)):
+        print(f"Cluster {index}: ")
+        datapoints = [int(data) for data in re.findall(r'\b\d+\b', str(clusters[index]))]
+        print(f"{len(datapoints)} points:")
+        [print(f"Point: {point} {df.loc[[str(point)]]}") for point in datapoints]
+
+
 # main function
 # csv file -> string tuple representing cluster
-def hcluster(csv_file):
+def hcluster(csv_file, threshold=None):
     df, restrictions = csv_to_df(csv_file)
     df.index = df.index.map(str)
     changing_df = df.copy()
@@ -159,9 +198,15 @@ def hcluster(csv_file):
         changing_df = merged_df
     root_cluster = changing_df.index.tolist()
     dendro_json = create_json(df, root_cluster[0], True)
+    if threshold is not None:
+        qualifying_clusters = get_qualifying_clusters(int(threshold))
+        print_clusters(qualifying_clusters, df)
     return dendro_json
 
 
 if __name__ == "__main__":
     args = sys.argv[1:]
-    hcluster(args[0])
+    if len(args) > 1:
+        hcluster(args[0], args[1])
+    else:
+        hcluster(args[0])
