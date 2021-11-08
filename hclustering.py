@@ -98,26 +98,57 @@ def merge_matrix_df(data_df, index_arg):
     return data_df
 
 
-def create_json(tuple_cluster):
-    tree = {
-        "type": "root",
-        "height": 1,
+def create_json(df, tuple_cluster, root=False):
+    data = {
+        "type": "node",
         "nodes": []
     }
-    queue = [tuple_cluster]
-    while len(queue) > 0:
-        popped = queue.pop(0)
-        left = popped[0]
-        right = popped[1]
-        if type(left) == int and type(right) == int:
-            print("leaf", left, right)
-        if type(left) == tuple:
-            print("Node", left)
-            queue.append(left)
-        if type(right) == tuple:
-            print("Node", right)
-            queue.append(right)
-    return tree
+    left = tuple_cluster[0]
+    right = tuple_cluster[1]
+    if root:
+        data['height'] = cluster_lookup[tuple_cluster]
+        data['type'] = 'root'
+        data['nodes'].append(create_json(df, left))
+        data['nodes'].append(create_json(df, right))
+    elif type(left) == int and type(right) == int:
+        left_leaf = {
+            "type": "leaf",
+            "height": 0,
+            "data": left
+            # "data": df.loc[str(left)]
+        }
+        right_leaf = {
+            "type": "leaf",
+            "height": 0,
+            "data": right
+            # "data": df.loc[str(right)]
+        }
+        return [left_leaf, right_leaf]
+    else:
+        left_leaf = right_leaf = None
+        if type(left) == int:
+            left_leaf = {
+                "type": "leaf",
+                "height": 0,
+                "data": left
+                # "data": df.loc[str(left)]
+            }
+            data["nodes"].append(left_leaf)
+        else:
+            data["nodes"].append(create_json(df, left))
+            data["height"] = cluster_lookup[left]
+        if type(right) == int:
+            right_leaf = {
+                "type": "leaf",
+                "height": 0,
+                "data": right
+                # "data": df.loc[str(right)]
+            }
+            data["nodes"].append(right_leaf)
+            data["height"] = cluster_lookup[right]
+        else:
+            data["nodes"].append(create_json(df, right))
+    return data
 
 
 # main function
@@ -133,7 +164,7 @@ def hcluster(csv_file):
         merged_df = merge_matrix_df(changing_df, index)
         changing_df = merged_df
     root_cluster = changing_df.index.tolist()
-    dendro_json = create_json(root_cluster[0])
+    dendro_json = create_json(df, root_cluster[0], True)
     return dendro_json
 
 
