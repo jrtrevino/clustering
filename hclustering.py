@@ -1,6 +1,7 @@
 import math
 import re
 import sys
+import json
 
 import numpy as np
 import pandas as pd
@@ -184,10 +185,20 @@ def print_clusters(clusters, df):
         [print(f"Point: {point} {df.loc[[str(point)]]}") for point in datapoints]
 
 
+def write_json_file(csv_file, dendrogram):
+    with open(str(csv_file + '.json'), 'w') as conversion:
+        conversion.write(json.dumps(dendrogram))
+
+
 # main function
 # csv file -> string tuple representing cluster
 def hcluster(csv_file, threshold=None):
     df, restrictions = csv_to_df(csv_file)
+    dropped = []
+    for column, index in zip(df.columns, restrictions):
+        if index == 0:
+            dropped.append(column)
+    df = df.drop(dropped, axis=1)
     df.index = df.index.map(str)
     changing_df = df.copy()
     while len(changing_df) > 1:
@@ -201,12 +212,13 @@ def hcluster(csv_file, threshold=None):
     if threshold is not None:
         qualifying_clusters = get_qualifying_clusters(int(threshold))
         print_clusters(qualifying_clusters, df)
+    write_json_file(csv_file, dendro_json)
     return dendro_json
 
 
 if __name__ == "__main__":
     args = sys.argv[1:]
     if len(args) > 1:
-        hcluster(args[0], args[1])
+        dendro = hcluster(args[0], args[1])
     else:
-        hcluster(args[0])
+        dendro = hcluster(args[0])
