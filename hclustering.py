@@ -1,7 +1,8 @@
+import json
 import math
 import re
 import sys
-import json
+import utility
 
 import numpy as np
 import pandas as pd
@@ -10,7 +11,7 @@ from utility import csv_to_df
 
 
 def find_closest_index(df):
-    # need to test it further with tuples
+    # need to dendrogram it further with tuples
     min_index = None
     min_num = math.inf
     start = 1
@@ -105,6 +106,90 @@ def get_qualifying_clusters(threshold):
     return clusters
 
 
+def split(distance_dict, threshold, cluster_arr, master):
+    dict_list = sorted(distance_dict.items(),
+                       key=lambda entry: entry[1], reverse=True
+                       )
+    first_item = dict_list[0]  # tuple
+    distance_dict.pop(first_item[0], None)
+    if first_item[1] <= threshold:
+        cluster_arr.append(first_item[0])
+    else:
+        # split the key
+        cluster_one = first_item[0][0]
+        cluster_two = first_item[0][1]
+        if type(cluster_one) is int:
+            cluster_arr.append(cluster_one)
+        else:
+            if master[cluster_one] <= threshold:
+                cluster_arr.append(cluster_one)
+            else:
+                split(distance_dict, threshold, cluster_arr, master)
+        if type(cluster_two) is int:
+            cluster_arr.append(cluster_two)
+        else:
+            if master[cluster_two] <= threshold:
+                cluster_arr.append(cluster_two)
+            else:
+                split(distance_dict, threshold, cluster_arr, master)
+
+
+def eval_clusters(dendrogram, df, restrictions, threshold=None):
+    if threshold is not None:
+        cluster_arr = []
+        split(dendrogram.copy(), threshold, cluster_arr, dendrogram.copy())
+        sse = 0
+        cluster_length = len(cluster_arr)
+        for cluster in cluster_arr:
+            temp_df = pd.DataFrame()
+            if type(cluster) is int:
+                temp_df = temp_df.append(df.loc[[str(cluster)]])
+            else:
+                temp = ("{}".format(cluster).replace("(", "").replace(")", ""))
+                temp = temp.split(",")
+                temp = [int(x.strip()) for x in temp]
+                for index in temp:
+                    temp_df = temp_df.append(df.loc[[str(index)]])
+                # conver temp to dataframe
+                # calculate dataframe mean
+                # calculate dataframe SSE
+            mean = utility.get_df_mean(temp_df, restrictions, pr=False)
+            sse += utility.calculate_sse([temp_df], [mean])
+            print(temp_df, "\n")
+        print(f"cluster sse: {sse} , cluster length: {cluster_length} threshold: {threshold}")
+        print("\n")
+    else:
+        for value in dendrogram.copy().values():
+            cluster_arr = []
+            split(dendrogram.copy(), value, cluster_arr, dendrogram.copy())
+            sse = 0
+            cluster_length = len(cluster_arr)
+            for cluster in cluster_arr:
+                temp_df = pd.DataFrame()
+                if type(cluster) is int:
+                    temp_df = temp_df.append(df.loc[[str(cluster)]])
+                else:
+                    temp = ("{}".format(cluster).replace("(", "").replace(")", ""))
+                    temp = temp.split(",")
+                    temp = [int(x.strip()) for x in temp]
+                    for index in temp:
+                        temp_df = temp_df.append(df.loc[[str(index)]])
+                    # conver temp to dataframe
+                    # calculate dataframe mean
+                    # calculate dataframe SSE
+                mean = utility.get_df_mean(temp_df, restrictions, pr=False)
+                sse += utility.calculate_sse([temp_df], [mean])
+                # print(temp_df, "\n")
+            print(f"cluster sse: {sse} , cluster length: {cluster_length} threshold: {value}")
+            print("\n")
+
+
+"""
+calculate mean and sse
+find smallest sse without large # of clusters 
+"""
+
+
 def create_json(df, tuple_cluster, root=False):
     data = {
         "type": "node",
@@ -144,11 +229,6 @@ def create_json(df, tuple_cluster, root=False):
             "height": 0,
             "data": right
         }
-        # leaf_combined = {
-        #     "type": "leaf",
-        #     "height": 0,
-        #     "data": (left, right)
-        # }
         return [leaf_left, leaf_right]
     else:
         left_leaf = right_leaf = None
@@ -209,9 +289,10 @@ def hcluster(csv_file, threshold=None):
         changing_df = merged_df
     root_cluster = changing_df.index.tolist()
     dendro_json = create_json(df, root_cluster[0], True)
-    if threshold is not None:
-        qualifying_clusters = get_qualifying_clusters(int(threshold))
-        print_clusters(qualifying_clusters, df)
+    if threshold:
+        eval_clusters(cluster_lookup, df, restrictions, float(threshold))
+    else:
+        eval_clusters(cluster_lookup, df, restrictions, None)
     write_json_file(csv_file, dendro_json)
     return dendro_json
 
