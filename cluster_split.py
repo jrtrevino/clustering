@@ -31,6 +31,5 @@ test = {(19, 21): 0.03214121732666122, (38, 39): 0.045454545454545414, (3, 4): 0
 cluster_arr = []
 split(test, 0.54, cluster_arr, test.copy())
 
-print("clusters: {}".format(len(cluster_arr)))
-for item in cluster_arr:
-    print(item)
+for cluster in cluster_arr:
+    print(len(cluster))
