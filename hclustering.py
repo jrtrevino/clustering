@@ -154,6 +154,7 @@ def eval_clusters(dendrogram, df, restrictions, threshold=None):
                 # calculate dataframe mean
                 # calculate dataframe SSE
             mean = utility.get_df_mean(temp_df, restrictions, pr=False)
+            print(f'cluster sse {utility.calculate_sse([temp_df], [mean])}')
             sse += utility.calculate_sse([temp_df], [mean])
             print(temp_df, "\n")
         print(f"cluster sse: {sse} , cluster length: {cluster_length} threshold: {threshold}")
