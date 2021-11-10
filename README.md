@@ -20,6 +20,14 @@ This will run the clustering with an initial cluster set of size k. Cluters are 
 
 
 ### hierarchical 
+To run this program, invoke it with the following command:
+```
+python3 hclustering.py <dataset.csv> [threshold]
+```
+Outputs: 
+1. json file containing tree
+2. if given a threshold, will produce a pdf containing clusters and their points
+
 
 ### dbscan
 To run this program, type
